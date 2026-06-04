@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { verifyToken } from "../utils/jwt.utils.js";
 import User from "../models/User.model.js";
 
@@ -21,12 +22,21 @@ const authenticate = async (req, res, next) => {
 
     try {
       const decoded = verifyToken(token);
-      const user = await User.findById(decoded.id).select("-password");
+      let user = await User.findById(decoded.id).select("-password");
       if (!user) {
-        return res.status(401).json({
-          success: false,
-          message: "User not found or authorization expired.",
-        });
+        // If we are using mock DB, auto-create the user on the fly using token credentials
+        if (mongoose.connection.readyState !== 1) {
+          user = await User.create({
+            _id: decoded.id,
+            email: decoded.email,
+            name: decoded.email ? decoded.email.split("@")[0] : "Guest",
+          });
+        } else {
+          return res.status(401).json({
+            success: false,
+            message: "User not found or authorization expired.",
+          });
+        }
       }
       req.user = user;
       next();

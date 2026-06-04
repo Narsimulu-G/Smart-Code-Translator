@@ -50,19 +50,50 @@ public class MockTranslatedClass {
 
 export const askGemini = async (prompt) => {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === "your_gemini_api_key_here") {
-    console.warn("Using mock Gemini response because GEMINI_API_KEY is not configured.");
-    return getMockResponse(prompt);
+  const hasGeminiKey = apiKey && apiKey !== "your_gemini_api_key_here";
+
+  if (hasGeminiKey) {
+    try {
+      const response = await generateContent(prompt);
+      if (response) {
+        return response;
+      }
+      throw new Error("Gemini returned an empty response");
+    } catch (error) {
+      console.warn(`Gemini API call failed (${error.message}). Trying OpenAI fallback...`);
+    }
   }
 
-  try {
-    const response = await generateContent(prompt);
-    if (!response) {
-      throw new Error("Gemini returned an empty response");
+  // Fallback to OpenAI if key is available in environment
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (openaiKey && openaiKey !== "your_openai_api_key_here" && !openaiKey.includes("sk-proj-placeholder")) {
+    try {
+      console.log("Using OpenAI fallback model (gpt-4o-mini) to serve response.");
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openaiKey}`
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.1
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (content) {
+          return content;
+        }
+      }
+      console.warn(`OpenAI API responded with status: ${response.status}`);
+    } catch (openaiError) {
+      console.warn(`OpenAI API call failed (${openaiError.message}).`);
     }
-    return response;
-  } catch (error) {
-    console.warn(`Gemini API call failed (${error.message}). Falling back to mock Gemini response.`);
-    return getMockResponse(prompt);
   }
+
+  console.warn("Using mock Gemini response as final fallback.");
+  return getMockResponse(prompt);
 };

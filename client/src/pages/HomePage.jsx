@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import MonacoEditor from "@monaco-editor/react";
 import toast from "react-hot-toast";
 import {
@@ -88,15 +88,27 @@ function HomePage() {
   const [optimizationResult, setOptimizationResult] = useState(null);
   const [explanationResult, setExplanationResult] = useState(null);
 
+  const editorRef = useRef(null);
+
+  const handleEditorDidMount = (editor) => {
+    editorRef.current = editor;
+  };
+
   useEffect(() => {
+    const currentCode = editorRef.current ? editorRef.current.getValue() : inputCode;
     const defaultSnippetsList = Object.values(DEFAULT_SNIPPETS);
-    if (!inputCode || defaultSnippetsList.includes(inputCode)) {
-      setInputCode(DEFAULT_SNIPPETS[sourceLang] || "");
+    if (!currentCode || defaultSnippetsList.includes(currentCode)) {
+      const newSnippet = DEFAULT_SNIPPETS[sourceLang] || "";
+      setInputCode(newSnippet);
+      if (editorRef.current) {
+        editorRef.current.setValue(newSnippet);
+      }
     }
   }, [sourceLang]);
 
   const handleRun = async () => {
-    if (!inputCode.trim()) {
+    const codeToProcess = editorRef.current ? editorRef.current.getValue() : inputCode;
+    if (!codeToProcess.trim()) {
       return toast.error("Please enter some code to process.");
     }
     
@@ -113,19 +125,19 @@ function HomePage() {
           setLoading(false);
           return;
         }
-        const res = await translateCode(inputCode, sourceLang, targetLang);
+        const res = await translateCode(codeToProcess, sourceLang, targetLang);
         setTranslatedCode(res.translatedCode);
         toast.success("Translation completed!");
       } else if (mode === "analyze") {
-        const res = await analyzeComplexity(inputCode, sourceLang);
+        const res = await analyzeComplexity(codeToProcess, sourceLang);
         setAnalysisResult(res);
         toast.success("Complexity analysis completed!");
       } else if (mode === "optimize") {
-        const res = await optimizeCode(inputCode, sourceLang);
+        const res = await optimizeCode(codeToProcess, sourceLang);
         setOptimizationResult(res);
         toast.success("Optimization completed!");
       } else if (mode === "explain") {
-        const res = await explainCode(inputCode, sourceLang);
+        const res = await explainCode(codeToProcess, sourceLang);
         setExplanationResult(res);
         toast.success("Explanation completed!");
       }
@@ -143,6 +155,9 @@ function HomePage() {
     
     if (translatedCode) {
       setInputCode(translatedCode);
+      if (editorRef.current) {
+        editorRef.current.setValue(translatedCode);
+      }
       setTranslatedCode("");
     }
   };
@@ -208,8 +223,8 @@ function HomePage() {
               height="100%"
               theme="vs-dark"
               language={getLanguageExtension(sourceLang)}
-              value={inputCode}
-              onChange={(val) => setInputCode(val || "")}
+              defaultValue={inputCode}
+              onMount={handleEditorDidMount}
               options={{
                 fontSize: 14,
                 minimap: { enabled: false },
