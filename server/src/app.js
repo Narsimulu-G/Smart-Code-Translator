@@ -8,9 +8,26 @@ import {
 
 const app = express();
 
+const allowedOrigins = [
+  "http://localhost:5173",
+];
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      
+      const isAllowed = 
+        allowedOrigins.includes(origin) || 
+        origin.endsWith(".vercel.app") || 
+        origin === process.env.CLIENT_URL;
+        
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
