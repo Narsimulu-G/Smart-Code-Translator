@@ -6,15 +6,16 @@ const ai = new GoogleGenAI({
 
 const MODEL_NAME = "gemini-2.5-flash";
 
-export const generateContent = async (prompt) => {
+export const generateContent = async (prompt, isJson = false) => {
   try {
     const response = await ai.models.generateContent({
       model: MODEL_NAME,
       contents: prompt,
+      config: isJson ? { responseMimeType: "application/json" } : undefined,
     });
     return response.text;
   } catch (error) {
-    console.error("Gemini API Error:", error.message);
-    throw new Error("Failed to communicate with AI Model: " + error.message);
+    console.error("Gemini API Error:", error?.message || error);
+    throw new Error("Failed to communicate with AI Model: " + (error?.message || error));
   }
 };

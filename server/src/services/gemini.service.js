@@ -48,19 +48,19 @@ public class MockTranslatedClass {
   return "Mock Gemini Response";
 };
 
-export const askGemini = async (prompt) => {
+export const askGemini = async (prompt, isJson = false) => {
   const apiKey = process.env.GEMINI_API_KEY;
   const hasGeminiKey = apiKey && apiKey !== "your_gemini_api_key_here";
 
   if (hasGeminiKey) {
     try {
-      const response = await generateContent(prompt);
+      const response = await generateContent(prompt, isJson);
       if (response) {
         return response;
       }
       throw new Error("Gemini returned an empty response");
     } catch (error) {
-      console.warn(`Gemini API call failed (${error.message}). Trying OpenAI fallback...`);
+      console.warn(`Gemini API call failed (${error?.message || error}). Trying OpenAI fallback...`);
     }
   }
 
@@ -78,7 +78,8 @@ export const askGemini = async (prompt) => {
         body: JSON.stringify({
           model: "gpt-4o-mini",
           messages: [{ role: "user", content: prompt }],
-          temperature: 0.1
+          temperature: 0.1,
+          ...(isJson ? { response_format: { type: "json_object" } } : {})
         })
       });
       if (response.ok) {
@@ -90,7 +91,7 @@ export const askGemini = async (prompt) => {
       }
       console.warn(`OpenAI API responded with status: ${response.status}`);
     } catch (openaiError) {
-      console.warn(`OpenAI API call failed (${openaiError.message}).`);
+      console.warn(`OpenAI API call failed (${openaiError?.message || openaiError}).`);
     }
   }
 
